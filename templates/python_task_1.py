@@ -2,91 +2,56 @@ import pandas as pd
 
 
 def generate_car_matrix(df)->pd.DataFrame:
-    """
-    Creates a DataFrame  for id combinations.
-
-    Args:
-        df (pandas.DataFrame)
-
-    Returns:
-        pandas.DataFrame: Matrix generated with 'car' values, 
-                          where 'id_1' and 'id_2' are used as indices and columns respectively.
-    """
-    # Write your logic here
-
-    return df
-
+    data=pd.read_csv('dataset-1.csv')
+    df = pd.DataFrame(data)
+    car_matrix = df.pivot_table(index='id_1', columns='id_2', values='car')
+    car_matrix.fillna(0, inplace=True)
+    for i in range(len(car_matrix)):
+        car_matrix.iloc[i, i] = 0
+    return car_matrix
 
 def get_type_count(df)->dict:
-    """
-    Categorizes 'car' values into types and returns a dictionary of counts.
-
-    Args:
-        df (pandas.DataFrame)
-
-    Returns:
-        dict: A dictionary with car types as keys and their counts as values.
-    """
-    # Write your logic here
-
-    return dict()
+    df['car_type'] = pd.cut(df['car'], bins=[0, 15, 25, 100], labels=['low', 'medium', 'high'])
+    car_type_count = df['car_type'].value_counts().sort_index()
+    return car_type_count.to_dict()
 
 
 def get_bus_indexes(df)->list:
-    """
-    Returns the indexes where the 'bus' values are greater than twice the mean.
-
-    Args:
-        df (pandas.DataFrame)
-
-    Returns:
-        list: List of indexes where 'bus' values exceed twice the mean.
-    """
-    # Write your logic here
-
-    return list()
+    mean_bus = df['bus'].mean()
+    twice_mean_bus = 2 * mean_bus
+    bus_indexes = df[df['bus'] > twice_mean_bus].index.to_list()
+    bus_indexes.sort()
+    return bus_indexes
 
 
 def filter_routes(df)->list:
-    """
-    Filters and returns routes with average 'truck' values greater than 7.
-
-    Args:
-        df (pandas.DataFrame)
-
-    Returns:
-        list: List of route names with average 'truck' values greater than 7.
-    """
-    # Write your logic here
-
-    return list()
-
+    avg_truck_by_route = df.groupby('route')['truck'].mean()
+    routes_with_high_avg_truck = avg_truck_by_route[avg_truck_by_route > 7].index.to_list()
+    routes_with_high_avg_truck.sort()
+    return routes_with_high_avg_truck
 
 def multiply_matrix(matrix)->pd.DataFrame:
-    """
-    Multiplies matrix values with custom conditions.
-
-    Args:
-        matrix (pandas.DataFrame)
-
-    Returns:
-        pandas.DataFrame: Modified matrix with values multiplied based on custom conditions.
-    """
-    # Write your logic here
-
-    return matrix
-
+    df[df > 20] *= 0.75
+    df[df <= 20] *= 1.25
+    return df.round(1)
 
 def time_check(df)->pd.Series:
-    """
-    Use shared dataset-2 to verify the completeness of the data by checking whether the timestamps for each unique (`id`, `id_2`) pair cover a full 24-hour and 7 days period
+    expected_duration = timedelta(days=7, hours=24)
+    expected_days = set(range(7))
 
-    Args:
-        df (pandas.DataFrame)
+    def is_valid_time(row):
+        # Convert timestamps to datetime objects
+        start_time = datetime.strptime(f"{row['startDay']} {row['startTime']}", "%Y-%m-%d %H:%M:%S")
+        end_time = datetime.strptime(f"{row['endDay']} {row['endTime']}", "%Y-%m-%d %H:%M:%S")
 
-    Returns:
-        pd.Series: return a boolean series
-    """
-    # Write your logic here
+        # Check duration and days covered
+        duration = end_time - start_time
+        covered_days = set(range(start_time.weekday(), (end_time + timedelta(days=1)).weekday()))
 
-    return pd.Series()
+        return duration == expected_duration and covered_days == expected_days
+
+    # Apply the check to each row and return a boolean series with multi-index
+    return df.apply(is_valid_time, axis=1).rename('incorrect_timestamps')
+df = pd.read_csv("dataset-2.csv")
+incorrect_timestamps = time_check(df.copy())
+print(incorrect_timestamps)
